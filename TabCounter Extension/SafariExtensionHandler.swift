@@ -24,11 +24,34 @@ class SafariExtensionHandler: SFSafariExtensionHandler {
     
     override func validateToolbarItem(in window: SFSafariWindow, validationHandler: @escaping ((Bool, String) -> Void)) {
         // This is called when Safari's state changed in some way that would require the extension's toolbar item to be validated again.
-        validationHandler(true, "")
+
+        let dispatchGroup = DispatchGroup()
+        let lock = NSLock()
+        var totalCount = 0
+
+        dispatchGroup.enter()
+
+        SFSafariApplication.getAllWindows { windows in
+            for (i, window) in windows.enumerated() {
+                dispatchGroup.enter()
+
+                window.getAllTabs { tabs in
+                    lock.lock()
+                    totalCount += tabs.count
+                    lock.unlock()
+                    dispatchGroup.leave()
+                }
+            }
+
+            dispatchGroup.leave()
+        }
+
+        dispatchGroup.notify(queue: DispatchQueue.main) {
+            validationHandler(true, "\(totalCount)")
+        }
     }
-    
+
     override func popoverViewController() -> SFSafariExtensionViewController {
         return SafariExtensionViewController.shared
     }
-
 }
